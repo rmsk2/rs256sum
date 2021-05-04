@@ -124,11 +124,7 @@ fn main() {
      match subcommand {
         ("gen", Some(gen_matches)) => {
             let mut file_names: Vec<String> = Vec::new();
-            let files_raw: Vec<_> = gen_matches.values_of("files").unwrap().collect(); // Use map()
-
-            for i in  files_raw {
-                file_names.push(String::from(i));
-            }
+            gen_matches.values_of("files").unwrap().for_each(|x| file_names.push(String::from(x)));
 
             hash_files(&file_names, &mut h, &f);
         },
