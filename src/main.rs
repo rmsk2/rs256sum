@@ -1,8 +1,9 @@
-use crypto::sha2::{Sha256/*, Sha512*/};
+use crypto::sha2::{Sha256, Sha512};
 use std::io::{self, BufRead};
 use std::path::Path;
 use std::fs::File;
 use clap::{Arg, App, SubCommand};
+use crypto::digest::Digest;
 
 mod tests;
 mod hasher;
@@ -91,11 +92,23 @@ fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn fo
     verify_files(&all_lines, h, line_parser);
 }
 
+fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
+    let mut hash: Box<dyn Digest> = Box::new(Sha256::new());
+    let mut algo_name = "SHA-256";
+
+    if use_sha_512 {
+        hash = Box::new(Sha512::new());
+        algo_name = "SHA-512";
+    }
+    
+    return Box::new(hs::Hasher::new(&algo_name, hash));
+}
+
 fn main() {
     let matches = App::new("rs256sum")
         .version("0.1.0")
         .author("Martin Grap <rmsk2@gmx.de>")
-        .about("A sha256sum clone in Rust")
+        .about("A sha256sum clone in Rust")          
         .subcommand(
             SubCommand::with_name("verify")
                 .about("Verify reference data")        
@@ -104,20 +117,31 @@ fn main() {
                     .short("i")
                     .long("input")
                     .takes_value(true)
-                    .help("A file with reference hashes")))
+                    .help("A file with reference hashes"))
+                .arg(Arg::with_name("sha512")
+                    .long("sha512")
+                    .help("Use SHA512"))
+                .arg(Arg::with_name("use-bsd")
+                    .long("use-bsd")
+                    .help("Use BSD format")))
         .subcommand(
             SubCommand::with_name("gen")
                 .about("Generate reference data")        
-                    .arg(Arg::with_name("files")
+                .arg(Arg::with_name("files")
                     .required(true)
                     .short("f")
                     .long("files")
                     .takes_value(true)
                     .multiple(true)
-                    .help("All files to hash")))
+                    .help("All files to hash"))
+                .arg(Arg::with_name("sha512")
+                    .long("sha512")
+                    .help("Use SHA512"))
+                .arg(Arg::with_name("use-bsd")
+                    .long("use-bsd")
+                    .help("Use BSD format")))
         .get_matches();
-
-    let mut h = hs::Hasher::new("SHA-256", Box::new(Sha256::new()));
+    
     let f = formatter::SimpleFormatter::new();
     let subcommand = matches.subcommand();
 
@@ -125,12 +149,15 @@ fn main() {
         ("gen", Some(gen_matches)) => {
             let mut file_names: Vec<String> = Vec::new();
             gen_matches.values_of("files").unwrap().for_each(|x| file_names.push(String::from(x)));
+            let mut h = make_file_hash(gen_matches.is_present("sha512"));
 
-            hash_files(&file_names, &mut h, &f);
+            hash_files(&file_names, h.as_mut(), &f);
         },
         ("verify", Some(verify_matches)) => {
             let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
-            verify_ref_file(&ref_file, &mut h, &f);
+            let mut h = make_file_hash(verify_matches.is_present("sha512"));         
+
+            verify_ref_file(&ref_file, h.as_mut(), &f);
         },
         _ => {
             println!("Unrecognized command");
