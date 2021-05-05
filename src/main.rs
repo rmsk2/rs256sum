@@ -45,7 +45,7 @@ fn verify_one_file(h: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
             return false;
         },
         _ => {
-            println!("{}", verify_result.message());
+            println!("{}: {}", file_name, verify_result.message());
             return false;
         }  
     }   
@@ -91,7 +91,7 @@ where P: AsRef<Path> {
 
 fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn HashLineFormatter) {
     let all_lines = match read_lines_from_file(Path::new(ref_file)) {
-        Ok(name) => name,
+        Ok(lines) => lines,
         Err(e) => {
             println!("{}", e);
             return;
