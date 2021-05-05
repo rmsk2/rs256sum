@@ -30,26 +30,34 @@ fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &d
     }
 }
 
+fn verify_one_file(h: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
+    let file_name = ref_data.0;
+    let hash_val = ref_data.1;
+
+    let verify_result = h.verify_file(file_name, hash_val);
+    match verify_result {
+        hs::HashError::Ok => {
+            println!("{}: OK", file_name);
+            return true;
+        },
+        hs::HashError::HashDifferent | hs::HashError::HashVerifyFail(_) => {
+            println!("{}: FAILED!!!", file_name);
+            return false;
+        },
+        _ => {
+            println!("{}", verify_result.message());
+            return false;
+        }  
+    }   
+}
+
 fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn HashLineFormatter) {
     let mut all_ok = true;
 
     for i in lines {
         match line_parser.parse(i) {
             Ok((file_name, hash_val)) => {
-                let verify_result = h.verify_file(&file_name, &hash_val);
-                match verify_result {
-                    hs::HashError::Ok => {
-                        println!("{}: OK", file_name);
-                    },
-                    hs::HashError::HashDifferent | hs::HashError::HashVerifyFail(_) => {
-                        all_ok = false;
-                        println!("{}: FAILED!!!", file_name);
-                    },
-                    _ => {
-                        all_ok = false;
-                        println!("{}", verify_result.message());
-                    } 
-                }
+                all_ok &= verify_one_file(h, (&file_name, &hash_val));
             },
             Err(e) => {
                 println!("{}", e.message());
@@ -117,7 +125,7 @@ fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
 
 fn main() {
     let mut app = App::new("rs256sum")
-        .version("0.1.0")
+        .version("0.7.0")
         .author("Martin Grap <rmsk2@gmx.de>")
         .about("A sha256sum clone in Rust")          
         .subcommand(
