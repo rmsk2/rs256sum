@@ -116,7 +116,7 @@ fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
 }
 
 fn main() {
-    let matches = App::new("rs256sum")
+    let mut app = App::new("rs256sum")
         .version("0.1.0")
         .author("Martin Grap <rmsk2@gmx.de>")
         .about("A sha256sum clone in Rust")          
@@ -128,7 +128,7 @@ fn main() {
                     .short("i")
                     .long("input")
                     .takes_value(true)
-                    .help("A file with reference hashes"))
+                    .help("A file containing reference hashes"))
                 .arg(Arg::with_name("sha512")
                     .long("sha512")
                     .help("Use SHA512"))
@@ -150,9 +150,9 @@ fn main() {
                     .help("Use SHA512"))
                 .arg(Arg::with_name("use-bsd")
                     .long("use-bsd")
-                    .help("Use BSD format")))
-        .get_matches();
-    
+                    .help("Use BSD format")));
+
+    let matches = app.clone().get_matches();
     let subcommand = matches.subcommand();
 
      match subcommand {
@@ -172,7 +172,10 @@ fn main() {
             verify_ref_file(&ref_file, h.as_mut(), f.as_ref());
         },
         _ => {
-            println!("Unrecognized command");
+            match app.print_long_help() {
+                Err(e) => println!("{}", e),
+                _ => println!("")
+            }
         }
     }
 }
