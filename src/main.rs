@@ -30,7 +30,7 @@ fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &d
     }
 }
 
-fn verify_one_file(h: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
+fn process_one_file(h: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
     let file_name = ref_data.0;
     let hash_val = ref_data.1;
 
@@ -57,7 +57,7 @@ fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn Has
     for i in lines {
         match line_parser.parse(i) {
             Ok((file_name, hash_val)) => {
-                all_ok &= verify_one_file(h, (&file_name, &hash_val));
+                all_ok &= process_one_file(h, (&file_name, &hash_val));
             },
             Err(e) => {
                 println!("{}", e.message());
