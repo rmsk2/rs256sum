@@ -10,10 +10,11 @@ mod hasher;
 mod formatter;
 
 use hasher as hs;
-use hs::FileHash;
+use hasher::FileHash;
+use formatter::HashLineFormatter;
 
 
-fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &dyn formatter::HashLineFormatter) {
+fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &dyn HashLineFormatter) {
     for i in file_names {
         let hash = match h.hash_file(i) {
             Ok(val) => val,
@@ -29,7 +30,7 @@ fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &d
     }
 }
 
-fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn formatter::HashLineFormatter) {
+fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn HashLineFormatter) {
     let mut all_ok = true;
 
     for i in lines {
@@ -80,7 +81,7 @@ where P: AsRef<Path> {
     Ok(Box::new(result))
 }
 
-fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn formatter::HashLineFormatter) {
+fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn HashLineFormatter) {
     let all_lines = match read_lines_from_file(Path::new(ref_file)) {
         Ok(name) => name,
         Err(e) => {
@@ -92,7 +93,7 @@ fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn fo
     verify_files(&all_lines, h, line_parser);
 }
 
-fn make_formatter(algo_name: &String, use_bsd: bool) -> Box<dyn formatter::HashLineFormatter> {
+fn make_formatter(algo_name: &String, use_bsd: bool) -> Box<dyn HashLineFormatter> {
     if use_bsd {
         return Box::new(formatter::BsdFormatter::new(algo_name));
     }
