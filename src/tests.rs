@@ -110,3 +110,34 @@ fn simple_format_test() {
         Err(_) => {}
     }; 
 }
+
+#[test]
+fn bsd_parser_test() {
+    let p = BsdFormatter::from_str("SHA256");
+
+    let mut test_line = String::from("SHA256 (data.txt) = abcdef0123456789");
+
+    let mut data = match p.parse(&test_line) {
+        Ok(res) => res,
+        Err(e) => {
+            println!("{}", e.message());
+            panic!("BsdFormatter test failed")
+        }
+    }; 
+    
+    assert_eq!(data.0, "data.txt");
+    assert_eq!(data.1, "abcdef0123456789");
+
+    test_line = String::from("SHA256 ((data .txt)) = abcdef0123456789");
+
+    data = match p.parse(&test_line) {
+        Ok(res) => res,
+        Err(e) => {
+            println!("{}", e.message());
+            panic!("BsdFormatter test failed")
+        }
+    }; 
+    
+    assert_eq!(data.0, "(data .txt)");
+    assert_eq!(data.1, "abcdef0123456789");    
+}

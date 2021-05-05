@@ -29,7 +29,7 @@ fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &d
     }
 }
 
-fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn formatter::HashLineParser) {
+fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn formatter::HashLineFormatter) {
     let mut all_ok = true;
 
     for i in lines {
@@ -80,7 +80,7 @@ where P: AsRef<Path> {
     Ok(Box::new(result))
 }
 
-fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn formatter::HashLineParser) {
+fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn formatter::HashLineFormatter) {
     let all_lines = match read_lines_from_file(Path::new(ref_file)) {
         Ok(name) => name,
         Err(e) => {
@@ -92,13 +92,23 @@ fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn fo
     verify_files(&all_lines, h, line_parser);
 }
 
+fn make_formatter(algo_name: &String, use_bsd: bool) -> Box<dyn formatter::HashLineFormatter> {
+    if use_bsd {
+        return Box::new(formatter::BsdFormatter::new(algo_name));
+    }
+    else
+    {
+        return Box::new(formatter::SimpleFormatter::new());
+    }
+}
+
 fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
     let mut hash: Box<dyn Digest> = Box::new(Sha256::new());
-    let mut algo_name = "SHA-256";
+    let mut algo_name = "SHA256";
 
     if use_sha_512 {
         hash = Box::new(Sha512::new());
-        algo_name = "SHA-512";
+        algo_name = "SHA512";
     }
     
     return Box::new(hs::Hasher::new(&algo_name, hash));
@@ -142,7 +152,6 @@ fn main() {
                     .help("Use BSD format")))
         .get_matches();
     
-    let f = formatter::SimpleFormatter::new();
     let subcommand = matches.subcommand();
 
      match subcommand {
@@ -150,14 +159,16 @@ fn main() {
             let mut file_names: Vec<String> = Vec::new();
             gen_matches.values_of("files").unwrap().for_each(|x| file_names.push(String::from(x)));
             let mut h = make_file_hash(gen_matches.is_present("sha512"));
+            let f = make_formatter(&h.get_algo(), gen_matches.is_present("use-bsd"));
 
-            hash_files(&file_names, h.as_mut(), &f);
+            hash_files(&file_names, h.as_mut(), f.as_ref());
         },
         ("verify", Some(verify_matches)) => {
             let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
-            let mut h = make_file_hash(verify_matches.is_present("sha512"));         
+            let mut h = make_file_hash(verify_matches.is_present("sha512"));
+            let f = make_formatter(&h.get_algo(), verify_matches.is_present("use-bsd"));         
 
-            verify_ref_file(&ref_file, h.as_mut(), &f);
+            verify_ref_file(&ref_file, h.as_mut(), f.as_ref());
         },
         _ => {
             println!("Unrecognized command");

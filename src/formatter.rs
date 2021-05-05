@@ -2,6 +2,7 @@ use regex::Regex;
 
 pub trait HashLineFormatter {
     fn format(&self, hash: &String, file_name: &String) -> String;
+    fn parse(&self, hash_line: &String) -> Result<(String, String), ParseError>; // (file_name, hash)
 }
 
 pub enum ParseError {
@@ -15,10 +16,6 @@ impl ParseError {
         }
     }
 } 
-
-pub trait HashLineParser {
-    fn parse(&self, hash_line: &String) -> Result<(String, String), ParseError>; // (file_name, hash)
-}
 
 pub struct SimpleFormatter {
     exp : regex::Regex
@@ -36,9 +33,7 @@ impl HashLineFormatter for SimpleFormatter {
     fn format(&self, hash: &String, file_name: &String) -> String {
         return format!("{}  {}", hash, file_name);
     }
-}
 
-impl HashLineParser for SimpleFormatter {
     fn parse(&self, hash_line: &String) -> Result<(String, String), ParseError> {
         let matches: Vec<regex::Captures> = self.exp.captures_iter(hash_line).collect();
 
@@ -51,23 +46,49 @@ impl HashLineParser for SimpleFormatter {
         let file_name = &groups[2];
 
         return Ok((String::from(file_name.trim()), String::from(hash_val)));
+    }    
+}
+
+pub struct BsdFormatter {
+    algo_name: String,
+    exp: regex::Regex
+}
+
+impl BsdFormatter {
+    #[allow(dead_code)]
+    pub fn from_str(name: &str) -> BsdFormatter {
+        let n = String::from(name);
+
+        return BsdFormatter::new(&n);
+    }
+
+    pub fn new(name: &String) -> BsdFormatter {
+        let exp_str = format!("^{} \\((.*)\\) = ([A-Fa-f0-9]+)$", name);
+
+        return BsdFormatter {
+            algo_name: name.clone(),
+            exp: Regex::new(&exp_str).unwrap()
+        }
     }
 }
 
-// struct BsdFormatter {
-//     algo_name: String
-// }
+impl HashLineFormatter for BsdFormatter {
+    fn format(&self, hash: &String, file_name: &String) -> String {
+        return format!("{} ({}) = {}", self.algo_name, file_name, hash);
+    }
 
-// impl BsdFormatter {
-//     fn new(name: &str) -> BsdFormatter {
-//         return BsdFormatter {
-//             algo_name: String::from(name)
-//         }
-//     }
-// }
+    fn parse(&self, hash_line: &String) -> Result<(String, String), ParseError> {
+        let matches: Vec<regex::Captures> = self.exp.captures_iter(hash_line).collect();
 
-// impl HashLineFormatter for BsdFormatter {
-//     fn format(&self, hash: &String, file_name: &String) -> String {
-//         return format!("{} ({}) = {}", self.algo_name, file_name, hash);
-//     }
-// }
+        if matches.len() != 1 {
+            return Err(ParseError::FormatError(hash_line.clone()));
+        }
+
+        let groups = &matches[0];
+        let hash_val = &groups[2];
+        let file_name = &groups[1];
+
+        return Ok((String::from(file_name.trim()), String::from(hash_val)));
+    }     
+}
+
