@@ -104,9 +104,7 @@ fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn Ha
 fn make_formatter(algo_name: &String, use_bsd: bool) -> Box<dyn HashLineFormatter> {
     if use_bsd {
         return Box::new(formatter::BsdFormatter::new(algo_name));
-    }
-    else
-    {
+    } else {
         return Box::new(formatter::SimpleFormatter::new());
     }
 }
