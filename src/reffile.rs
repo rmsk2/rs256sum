@@ -41,7 +41,6 @@ impl<R : Read> Iterator for RefFileIter<R> {
     }  
 }
 
-
 pub struct RefFile<R : Read> {
     hasher: Rc<RefCell<dyn FileHash>>,
     parser: Rc<dyn HashLineFormatter>,
