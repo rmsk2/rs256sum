@@ -1,22 +1,25 @@
 use crypto::sha2::{Sha256, Sha512};
-use std::io::{self, BufRead};
-use std::path::Path;
 use std::fs::File;
 use clap::{Arg, App, SubCommand};
 use crypto::digest::Digest;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::io::Read;
 
 mod tests;
 mod hasher;
 mod formatter;
+mod reffile;
 
 use hasher as hs;
 use hasher::FileHash;
 use formatter::HashLineFormatter;
+use reffile::RefFile;
 
 
-fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &dyn HashLineFormatter) {
+fn hash_files(file_names: &Vec<String>, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) {
     for i in file_names {
-        let hash = match h.hash_file(i) {
+        let hash = match h.borrow_mut().hash_file(i) {
             Ok(val) => val,
             Err(err) => {
                 println!("{}", err.message()); 
@@ -30,95 +33,39 @@ fn hash_files(file_names: &Vec<String>, h: &mut dyn FileHash, line_formatter: &d
     }
 }
 
-fn process_one_file(h: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
-    let file_name = ref_data.0;
-    let hash_val = ref_data.1;
-
-    let verify_result = h.verify_file(file_name, hash_val);
-    match verify_result {
-        hs::HashError::Ok => {
-            println!("{}: OK", file_name);
-            return true;
-        },
-        hs::HashError::HashDifferent | hs::HashError::HashVerifyFail(_) => {
-            println!("{}: FAILED!!!", file_name);
-            return false;
-        },
-        _ => {
-            println!("{}: {}", file_name, verify_result.message());
-            return false;
-        }  
-    }   
-}
-
-fn verify_files(lines: &Vec<String>, h: &mut dyn FileHash, line_parser: &dyn HashLineFormatter) {
+fn verify_ref_file<R : Read>(ref_file: RefFile<R>) {
     let mut all_ok = true;
 
-    for i in lines {
-        match line_parser.parse(i) {
-            Ok((file_name, hash_val)) => {
-                all_ok &= process_one_file(h, (&file_name, &hash_val));
-            },
-            Err(e) => {
-                println!("{}", e.message());
-                all_ok = false;
-                break;
-            }
-        };
+    for i in &ref_file {
+        all_ok &= ref_file.process_one_file((&i.0, &i.1))
     }
 
     if !all_ok {
         println!("There were errors!!");
-    }
+    }    
 }
 
-fn read_lines_from_file<P>(filename: P) -> Result<Box<Vec<String>>, std::io::Error>
-where P: AsRef<Path> {
-    let mut result: Vec<String> = Vec::new();
-
-    let file = File::open(filename)?;
-    for i in io::BufReader::new(file).lines() {
-        let l = match i {
-            Ok(line) => line,
-            Err(e) => return Err(e),
-        };
-
-        result.push(l);
-    }
-
-    Ok(Box::new(result))
-}
-
-fn verify_ref_file(ref_file: &String, h: &mut dyn FileHash, line_parser: &dyn HashLineFormatter) {
-    let all_lines = match read_lines_from_file(Path::new(ref_file)) {
-        Ok(lines) => lines,
-        Err(e) => {
-            println!("{}", e);
-            return;
-        }
-    };
-        
-    verify_files(&all_lines, h, line_parser);
-}
-
-fn make_formatter(algo_name: &String, use_bsd: bool) -> Box<dyn HashLineFormatter> {
+fn make_formatter(algo_name: &String, use_bsd: bool) -> Rc<dyn HashLineFormatter> {
     if use_bsd {
-        return Box::new(formatter::BsdFormatter::new(algo_name));
+        return Rc::new(formatter::BsdFormatter::new(algo_name));
     } else {
-        return Box::new(formatter::SimpleFormatter::new());
+        return Rc::new(formatter::SimpleFormatter::new());
     }
 }
 
-fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
-    let mut hash: Box<dyn Digest> = Box::new(Sha256::new());
-    let mut algo_name = "SHA256";
+fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
 
     if use_sha_512 {
-        hash = Box::new(Sha512::new());
-        algo_name = "SHA512";
+        let hash: Box<dyn Digest> = Box::new(Sha512::new());
+        let algo_name = "SHA512";
+        return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
     }
-    
-    return Box::new(hs::Hasher::new(&algo_name, hash));
+    else
+    {
+        let hash: Box<dyn Digest> = Box::new(Sha256::new());
+        let algo_name = "SHA256";
+        return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
+    }
 }
 
 fn main() {
@@ -165,17 +112,25 @@ fn main() {
         ("gen", Some(gen_matches)) => {
             let mut file_names: Vec<String> = Vec::new();
             gen_matches.values_of("files").unwrap().for_each(|x| file_names.push(String::from(x)));
-            let mut h = make_file_hash(gen_matches.is_present("sha512"));
-            let f = make_formatter(&h.get_algo(), gen_matches.is_present("use-bsd"));
+            let h = make_file_hash(gen_matches.is_present("sha512"));
+            let f = make_formatter(&h.borrow().get_algo(), gen_matches.is_present("use-bsd"));
 
-            hash_files(&file_names, h.as_mut(), f.as_ref());
+            hash_files(&file_names, &h, f.as_ref());
         },
         ("verify", Some(verify_matches)) => {
             let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
-            let mut h = make_file_hash(verify_matches.is_present("sha512"));
-            let f = make_formatter(&h.get_algo(), verify_matches.is_present("use-bsd"));         
+            let h = make_file_hash(verify_matches.is_present("sha512"));
+            let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present("use-bsd"));  
+            
+            let stream_in = match File::open(ref_file) {
+                Ok(f) => f,
+                Err(e) => {
+                    println!("{}", e);
+                    return;
+                }
+            };
 
-            verify_ref_file(&ref_file, h.as_mut(), f.as_ref());
+            verify_ref_file(RefFile::new(stream_in, h, f));
         },
         _ => {
             match app.print_long_help() {
