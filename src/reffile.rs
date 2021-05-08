@@ -8,18 +8,7 @@ use crate::formatter::HashLineFormatter;
 
 pub struct RefFileIter<R : Read> {
     parser: Rc<dyn HashLineFormatter>,
-    line_iter: Rc<RefCell<std::io::Lines<io::BufReader<R>>>>
-}
-
-impl<R : Read> RefFileIter<R>{
-    pub fn new(l_iter: Rc<RefCell<std::io::Lines<io::BufReader<R>>>>, p: Rc<dyn HashLineFormatter>) -> Self {
-        let res = RefFileIter {
-            parser: p,
-            line_iter: l_iter
-        };
-
-        return res;
-    }
+    line_iter: Rc<RefCell<std::io::Lines<io::BufReader<R>>>>    
 }
 
 impl<R : Read> Iterator for RefFileIter<R> {
@@ -94,7 +83,10 @@ impl<R : Read> IntoIterator for &RefFile<R> {
     type Item = (String, String);
     type IntoIter = RefFileIter<R>;
 
-    fn into_iter(self) -> RefFileIter<R> {
-        return RefFileIter::new(self.line_iter.clone(), self.parser.clone())
+    fn into_iter(self) -> Self::IntoIter {
+        return RefFileIter {
+            parser: self.parser.clone(),
+            line_iter: self.line_iter.clone()
+        }
     }
 }

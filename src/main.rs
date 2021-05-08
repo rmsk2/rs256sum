@@ -36,9 +36,7 @@ fn hash_files(file_names: &Vec<String>, h: &Rc<RefCell<dyn FileHash>>, line_form
 fn verify_ref_file<R : Read>(ref_file: RefFile<R>) {
     let mut all_ok = true;
 
-    for i in &ref_file {
-        all_ok &= ref_file.process_one_file((&i.0, &i.1))
-    }
+    ref_file.into_iter().for_each(|i| all_ok &= ref_file.process_one_file((&i.0, &i.1)));
 
     if !all_ok {
         println!("There were errors!!");
@@ -54,18 +52,16 @@ fn make_formatter(algo_name: &String, use_bsd: bool) -> Rc<dyn HashLineFormatter
 }
 
 fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
+    let hash: Box<dyn Digest> = Box::new(Sha256::new());
+    let algo_name = "SHA256";
 
     if use_sha_512 {
         let hash: Box<dyn Digest> = Box::new(Sha512::new());
         let algo_name = "SHA512";
         return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
     }
-    else
-    {
-        let hash: Box<dyn Digest> = Box::new(Sha256::new());
-        let algo_name = "SHA256";
-        return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
-    }
+
+    return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
 }
 
 fn main() {
