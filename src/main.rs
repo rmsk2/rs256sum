@@ -52,13 +52,12 @@ fn make_formatter(algo_name: &String, use_bsd: bool) -> Rc<dyn HashLineFormatter
 }
 
 fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
-    let hash: Box<dyn Digest> = Box::new(Sha256::new());
-    let algo_name = "SHA256";
+    let mut hash: Box<dyn Digest> = Box::new(Sha256::new());
+    let mut algo_name = "SHA256";
 
     if use_sha_512 {
-        let hash: Box<dyn Digest> = Box::new(Sha512::new());
-        let algo_name = "SHA512";
-        return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
+        hash = Box::new(Sha512::new());
+        algo_name = "SHA512";
     }
 
     return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
