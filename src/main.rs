@@ -65,7 +65,7 @@ fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
 
 fn main() {
     let mut app = App::new("rs256sum")
-        .version("0.7.0")
+        .version("0.9.0")
         .author("Martin Grap <rmsk2@gmx.de>")
         .about("A sha256sum clone in Rust")          
         .subcommand(

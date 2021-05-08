@@ -1,9 +1,24 @@
 #[cfg(test)]
 use crate::hasher::*;
+
 #[cfg(test)]
 use crypto::sha2::Sha256;
+
 #[cfg(test)]
 use crate::formatter::*;
+
+#[cfg(test)]
+use crypto::digest::Digest;
+
+#[cfg(test)]
+use std::rc::Rc;
+
+#[cfg(test)]
+use std::cell::RefCell;
+
+#[cfg(test)]
+use crate::reffile::*;
+
 
 #[test]
 fn try_error_messages() {
@@ -140,4 +155,22 @@ fn bsd_parser_test() {
     
     assert_eq!(data.0, "(data .txt)");
     assert_eq!(data.1, "abcdef0123456789");    
+}
+
+#[test]
+fn iterator_test() {
+    let data = format!("111111  dateia\n222222  dateib\n");
+    let hash: Box<dyn Digest> = Box::new(Sha256::new());
+    let algo_name = "SHA256";
+    
+    let h = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
+    let f = Rc::new(SimpleFormatter::new());
+    let ref_data = RefFile::new(data.as_bytes(), h, f);
+    let res: Vec<(String, String)> = ref_data.into_iter().collect();
+
+    assert_eq!(res.len(), 2);
+    assert_eq!(res[0].1, "111111");
+    assert_eq!(res[0].0, "dateia");
+    assert_eq!(res[1].1, "222222");
+    assert_eq!(res[1].0, "dateib");
 }
