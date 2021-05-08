@@ -159,7 +159,7 @@ fn bsd_parser_test() {
 
 #[test]
 fn iterator_test() {
-    let data = format!("111111  dateia\n222222  dateib\n");
+    let data = String::from("111111  dateia\n222222  dateib\n");
     let hash: Box<dyn Digest> = Box::new(Sha256::new());
     let algo_name = "SHA256";
     
