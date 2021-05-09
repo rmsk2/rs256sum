@@ -160,7 +160,6 @@ fn main() {
             if !all_ok {
                 println!("There were errors!!");
             } 
-
         },
         _ => {
             match app.print_long_help() {
