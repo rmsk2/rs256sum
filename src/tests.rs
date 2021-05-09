@@ -1,21 +1,15 @@
 #[cfg(test)]
 use crate::hasher::*;
-
 #[cfg(test)]
 use crypto::sha2::Sha256;
-
 #[cfg(test)]
 use crate::formatter::*;
-
 #[cfg(test)]
 use crypto::digest::Digest;
-
 #[cfg(test)]
 use std::rc::Rc;
-
 #[cfg(test)]
 use std::cell::RefCell;
-
 #[cfg(test)]
 use crate::reffile::*;
 
