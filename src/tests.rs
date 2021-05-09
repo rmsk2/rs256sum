@@ -174,3 +174,20 @@ fn iterator_test() {
     assert_eq!(res[1].1, "222222");
     assert_eq!(res[1].0, "dateib");
 }
+#[test]
+fn iterator_bsd_test() {
+    let data = String::from("SHA256 (dateia) = 111111\nSHA256 (dateib) = 222222\n");
+    let hash: Box<dyn Digest> = Box::new(Sha256::new());
+    let algo_name = "SHA256";
+    
+    let h = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
+    let f = Rc::new(BsdFormatter::new(&h.borrow().get_algo()));
+    let ref_data = RefFile::new(data.as_bytes(), h, f);
+    let res: Vec<(String, String)> = ref_data.into_iter().collect();
+
+    assert_eq!(res.len(), 2);
+    assert_eq!(res[0].1, "111111");
+    assert_eq!(res[0].0, "dateia");
+    assert_eq!(res[1].1, "222222");
+    assert_eq!(res[1].0, "dateib");
+}
