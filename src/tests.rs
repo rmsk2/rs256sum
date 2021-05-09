@@ -12,6 +12,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 #[cfg(test)]
 use crate::reffile::*;
+#[cfg(test)]
+use crate::*;
 
 
 #[test]
@@ -122,7 +124,7 @@ fn simple_format_test() {
 
 #[test]
 fn bsd_parser_test() {
-    let p = BsdFormatter::from_str("SHA256");
+    let p = BsdFormatter::from_str(ALGO_SHA256);
 
     let mut test_line = String::from("SHA256 (data.txt) = abcdef0123456789");
 
@@ -155,7 +157,7 @@ fn bsd_parser_test() {
 fn iterator_test() {
     let data = String::from("111111  dateia\n222222  dateib\n");
     let hash: Box<dyn Digest> = Box::new(Sha256::new());
-    let algo_name = "SHA256";
+    let algo_name = ALGO_SHA256;
     
     let h: Rc<RefCell<dyn FileHash>> = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
     let f: Rc<dyn HashLineFormatter> = Rc::new(SimpleFormatter::new());

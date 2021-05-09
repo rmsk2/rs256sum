@@ -19,7 +19,7 @@ impl<R : Read> Iterator for RefFileIter<R> {
         let line_raw = match line_res {
             Some(d) => match d {
                 Err(e) => {
-                    println!("{}", e);
+                    eprintln!("{}", e);
                     return None
                 },
                 Ok(d) => String::from(d)
@@ -31,7 +31,7 @@ impl<R : Read> Iterator for RefFileIter<R> {
 
         let item = match res {
             Err(e) => {
-                println!("{}", e.message());
+                eprintln!("{}", e.message());
                 return None
             },
             Ok(i) => Some(i),

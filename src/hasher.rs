@@ -27,7 +27,7 @@ impl HashError {
 
 
 
-const BUFFER_SIZE : usize = 4096;
+const BUFFER_SIZE: usize = 4096;
 
 pub trait FileHash {
     fn get_algo(&self) -> String;
