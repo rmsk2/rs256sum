@@ -146,8 +146,6 @@ const ARG_FROM_STDIN: &str = "from-stdin";
 const ARG_FILES: &str = "files";
 
 fn main() {
-    let return_code: i32;
-
     let mut app = App::new("rs256sum")
         .version("0.9.5")
         .author("Martin Grap <rmsk2@gmx.de>")
@@ -191,12 +189,12 @@ fn main() {
     let matches = app.clone().get_matches();
     let subcommand = matches.subcommand();
 
-     match subcommand {
+    let return_code = match subcommand {
         (COMMAND_GEN, Some(gen_matches)) => {
-            return_code = gen_command(gen_matches);
+            gen_command(gen_matches)
         },
         (COMMAND_VERIFY, Some(verify_matches)) => {
-            return_code = verify_command(verify_matches);
+            verify_command(verify_matches)
         },
         _ => {
             match app.print_long_help() {
@@ -204,9 +202,9 @@ fn main() {
                 _ => eprintln!("")
             }
 
-            return_code = PROG_RETURN_ERR;
+            PROG_RETURN_ERR
         }
-    }
+    };
 
     process::exit(return_code);
 }
