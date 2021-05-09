@@ -4,9 +4,8 @@ use clap::{Arg, App, SubCommand};
 use crypto::digest::Digest;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::io::Read;
-
-use std::io::{self, BufRead};
+use std::process;
+use std::io::{self, Read, BufRead};
 
 mod tests;
 mod hasher;
@@ -20,9 +19,11 @@ use reffile::RefFile;
 
 const ALGO_SHA256: &str = "SHA256";
 const ALGO_SHA512: &str = "SHA512";
+const PROG_RETURN_OK: i32 = 0;
+const PROG_RETURN_ERR: i32 = 42;
 
 
-fn hash_files<T>(file_names: T, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) -> u32
+fn hash_files<T>(file_names: T, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) -> (u32, bool)
 where 
     T: IntoIterator<Item=String>
 {
@@ -33,7 +34,7 @@ where
             Ok(val) => val,
             Err(err) => {
                 eprintln!("{}", err.message()); 
-                return count;
+                return (count, false);
             }
         };
 
@@ -41,7 +42,7 @@ where
         count += 1;
     }
 
-    return count;
+    return (count, true);
 }
 
 fn verify_ref_file<R : Read>(ref_file: RefFile<R>) -> bool {
@@ -72,28 +73,40 @@ fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
     return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
 }
 
-fn gen_command(gen_matches: &clap::ArgMatches) {
+fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
     let h = make_file_hash(gen_matches.is_present(ARG_SHA_512));
     let f = make_formatter(&h.borrow().get_algo(), gen_matches.is_present(ARG_USE_BSD));
     let mut files_hashed: u32 = 0;
+    let mut all_ok = true;
     
     if let Some(in_files) = gen_matches.values_of(ARG_FILES) {
         let mut file_names: Vec<String> = Vec::new();
         in_files.for_each(|x| file_names.push(String::from(x)));
-        files_hashed += hash_files(file_names, &h, f.as_ref());
+        let (hash_count, ok) = hash_files(file_names, &h, f.as_ref());
+        files_hashed += hash_count;
+        all_ok &= ok;
     }
 
     if gen_matches.is_present(ARG_FROM_STDIN) {
         let mut line_iter = io::BufReader::new(io::stdin()).lines().map(|x| x.unwrap());
-        files_hashed += hash_files(&mut line_iter, &h, f.as_ref());
+        let (hash_count, ok) = hash_files(&mut line_iter, &h, f.as_ref());
+        files_hashed += hash_count;
+        all_ok &= ok;
     }
 
     if files_hashed == 0 {
         eprintln!("No input specified");
+        return PROG_RETURN_ERR;
     }
+
+    if !all_ok {
+        return PROG_RETURN_ERR;
+    }
+
+    return PROG_RETURN_OK;
 }
 
-fn verify_command(verify_matches: &clap::ArgMatches) {
+fn verify_command(verify_matches: &clap::ArgMatches) -> i32 {
     let h = make_file_hash(verify_matches.is_present(ARG_SHA_512));
     let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present(ARG_USE_BSD));
     let mut all_ok = true;  
@@ -105,7 +118,7 @@ fn verify_command(verify_matches: &clap::ArgMatches) {
             Ok(f) => f,
             Err(e) => {
                 eprintln!("{}", e);
-                return;
+                return PROG_RETURN_ERR;
             }
         };
 
@@ -118,7 +131,10 @@ fn verify_command(verify_matches: &clap::ArgMatches) {
 
     if !all_ok {
         eprintln!("There were errors!!");
+        return PROG_RETURN_ERR;
     } 
+
+    return PROG_RETURN_OK;
 }
 
 const COMMAND_GEN: &str = "gen";
@@ -130,6 +146,8 @@ const ARG_FROM_STDIN: &str = "from-stdin";
 const ARG_FILES: &str = "files";
 
 fn main() {
+    let return_code: i32;
+
     let mut app = App::new("rs256sum")
         .version("0.9.0")
         .author("Martin Grap <rmsk2@gmx.de>")
@@ -175,17 +193,21 @@ fn main() {
 
      match subcommand {
         (COMMAND_GEN, Some(gen_matches)) => {
-            gen_command(gen_matches);
+            return_code = gen_command(gen_matches);
         },
         (COMMAND_VERIFY, Some(verify_matches)) => {
-            verify_command(verify_matches);
+            return_code = verify_command(verify_matches);
         },
         _ => {
             match app.print_long_help() {
                 Err(e) => eprintln!("{}", e),
                 _ => eprintln!("")
             }
+
+            return_code = PROG_RETURN_ERR;
         }
     }
+
+    process::exit(return_code);
 }
 
