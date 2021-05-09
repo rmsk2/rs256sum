@@ -34,23 +34,19 @@ where
             }
         };
 
-        let line_out = line_formatter.format(&hash, &i);
-
-        println!("{}", line_out);
+        println!("{}", line_formatter.format(&hash, &i));
         count += 1;
     }
 
     return count;
 }
 
-fn verify_ref_file<R : Read>(ref_file: RefFile<R>) {
+fn verify_ref_file<R : Read>(ref_file: RefFile<R>) -> bool {
     let mut all_ok = true;
 
     ref_file.into_iter().for_each(|i| all_ok &= ref_file.process_one_file((&i.0, &i.1)));
 
-    if !all_ok {
-        println!("There were errors!!");
-    }    
+    return all_ok;   
 }
 
 fn make_formatter(algo_name: &String, use_bsd: bool) -> Rc<dyn HashLineFormatter> {
@@ -82,7 +78,6 @@ fn main() {
             SubCommand::with_name("verify")
                 .about("Verify reference data")        
                 .arg(Arg::with_name("inputfile")
-                    .required(true)
                     .short("i")
                     .long("input")
                     .takes_value(true)
@@ -92,7 +87,10 @@ fn main() {
                     .help("Use SHA512"))
                 .arg(Arg::with_name("use-bsd")
                     .long("use-bsd")
-                    .help("Use BSD format")))
+                    .help("Use BSD format"))
+                .arg(Arg::with_name("from-stdin")
+                    .long("from-stdin")
+                    .help("Read reference data from stdin")))
         .subcommand(
             SubCommand::with_name("gen")
                 .about("Generate reference data")        
@@ -137,19 +135,32 @@ fn main() {
             }
         },
         ("verify", Some(verify_matches)) => {
-            let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
             let h = make_file_hash(verify_matches.is_present("sha512"));
-            let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present("use-bsd"));  
+            let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present("use-bsd"));
+            let mut all_ok = true;  
             
-            let stream_in = match File::open(ref_file) {
-                Ok(f) => f,
-                Err(e) => {
-                    println!("{}", e);
-                    return;
-                }
-            };
+            if verify_matches.is_present("inputfile") {
+                let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
 
-            verify_ref_file(RefFile::new(stream_in, h, f));
+                let stream_in = match File::open(ref_file) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        println!("{}", e);
+                        return;
+                    }
+                };
+    
+                all_ok &= verify_ref_file(RefFile::new(stream_in, &h, &f));
+            }
+
+            if verify_matches.is_present("from-stdin") {
+                all_ok &= verify_ref_file(RefFile::new(io::stdin(), &h, &f));
+            }
+
+            if !all_ok {
+                println!("There were errors!!");
+            } 
+
         },
         _ => {
             match app.print_long_help() {

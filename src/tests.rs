@@ -157,9 +157,9 @@ fn iterator_test() {
     let hash: Box<dyn Digest> = Box::new(Sha256::new());
     let algo_name = "SHA256";
     
-    let h = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
-    let f = Rc::new(SimpleFormatter::new());
-    let ref_data = RefFile::new(data.as_bytes(), h, f);
+    let h: Rc<RefCell<dyn FileHash>> = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
+    let f: Rc<dyn HashLineFormatter> = Rc::new(SimpleFormatter::new());
+    let ref_data = RefFile::new(data.as_bytes(), &h, &f);
     let res: Vec<(String, String)> = ref_data.into_iter().collect();
 
     assert_eq!(res.len(), 2);
@@ -174,9 +174,9 @@ fn iterator_bsd_test() {
     let hash: Box<dyn Digest> = Box::new(Sha256::new());
     let algo_name = "SHA256";
     
-    let h = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
-    let f = Rc::new(BsdFormatter::new(&h.borrow().get_algo()));
-    let ref_data = RefFile::new(data.as_bytes(), h, f);
+    let h: Rc<RefCell<dyn FileHash>> = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
+    let f: Rc<dyn HashLineFormatter> = Rc::new(BsdFormatter::new(&h.borrow().get_algo()));
+    let ref_data = RefFile::new(data.as_bytes(), &h, &f);
     let res: Vec<(String, String)> = ref_data.into_iter().collect();
 
     assert_eq!(res.len(), 2);

@@ -48,10 +48,10 @@ pub struct RefFile<R : Read> {
 }
 
 impl<R : Read> RefFile<R> {
-    pub fn new(s: R, h: Rc<RefCell<dyn FileHash>>, p: Rc<dyn HashLineFormatter>) -> Self {
+    pub fn new(s: R, h: &Rc<RefCell<dyn FileHash>>, p: &Rc<dyn HashLineFormatter>) -> Self {
         return RefFile {
-            hasher: h,
-            parser: p,
+            hasher: h.clone(),
+            parser: p.clone(),
             line_iter: Rc::new(RefCell::new(io::BufReader::new(s).lines()))
         }
     }

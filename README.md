@@ -25,13 +25,14 @@ rs256sum-verify
 Verify reference data
 
 USAGE:
-    rs256sum verify [FLAGS] --input <inputfile>
+    rs256sum verify [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-        --sha512     Use SHA512
-        --use-bsd    Use BSD format
-    -V, --version    Prints version information
+        --from-stdin    Read reference data from stdin
+    -h, --help          Prints help information
+        --sha512        Use SHA512
+        --use-bsd       Use BSD format
+    -V, --version       Prints version information
 
 OPTIONS:
     -i, --input <inputfile>    A file containing reference hashes
