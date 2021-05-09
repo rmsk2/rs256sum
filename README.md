@@ -7,16 +7,17 @@ rs256sum-gen
 Generate reference data
 
 USAGE:
-    rs256sum gen [FLAGS] --files <files>...
+    rs256sum gen [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-        --sha512     Use SHA512
-        --use-bsd    Use BSD format
-    -V, --version    Prints version information
+        --from-stdin    Read names of files to hash from stdin
+    -h, --help          Prints help information
+        --sha512        Use SHA512
+        --use-bsd       Use BSD format
+    -V, --version       Prints version information
 
 OPTIONS:
-    -f, --files <files>...    All files to hash
+    -f, --files <files>...    Names of files to hash
 
 
 

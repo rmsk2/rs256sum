@@ -6,6 +6,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::io::Read;
 
+use std::io::{self, BufRead};
+
 mod tests;
 mod hasher;
 mod formatter;
@@ -17,23 +19,28 @@ use formatter::HashLineFormatter;
 use reffile::RefFile;
 
 
-fn hash_files<'a, T>(file_names: T, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) 
+fn hash_files<T>(file_names: T, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) -> u32
 where 
-    T: IntoIterator<Item=&'a String>
+    T: IntoIterator<Item=String>
 {
+    let mut count: u32 = 0;
+
     for i in file_names {
-        let hash = match h.borrow_mut().hash_file(i) {
+        let hash = match h.borrow_mut().hash_file(&i) {
             Ok(val) => val,
             Err(err) => {
                 println!("{}", err.message()); 
-                return;
+                return count;
             }
         };
 
-        let line_out = line_formatter.format(&hash, i);
+        let line_out = line_formatter.format(&hash, &i);
 
         println!("{}", line_out);
+        count += 1;
     }
+
+    return count;
 }
 
 fn verify_ref_file<R : Read>(ref_file: RefFile<R>) {
@@ -90,30 +97,44 @@ fn main() {
             SubCommand::with_name("gen")
                 .about("Generate reference data")        
                 .arg(Arg::with_name("files")
-                    .required(true)
                     .short("f")
                     .long("files")
                     .takes_value(true)
                     .multiple(true)
-                    .help("All files to hash"))
+                    .help("Names of files to hash"))
                 .arg(Arg::with_name("sha512")
                     .long("sha512")
                     .help("Use SHA512"))
                 .arg(Arg::with_name("use-bsd")
                     .long("use-bsd")
-                    .help("Use BSD format")));
+                    .help("Use BSD format"))
+                .arg(Arg::with_name("from-stdin")
+                    .long("from-stdin")
+                    .help("Read names of files to hash from stdin")));
 
     let matches = app.clone().get_matches();
     let subcommand = matches.subcommand();
 
      match subcommand {
         ("gen", Some(gen_matches)) => {
-            let mut file_names: Vec<String> = Vec::new();
-            gen_matches.values_of("files").unwrap().for_each(|x| file_names.push(String::from(x)));
             let h = make_file_hash(gen_matches.is_present("sha512"));
             let f = make_formatter(&h.borrow().get_algo(), gen_matches.is_present("use-bsd"));
+            let mut files_hashed: u32 = 0;
+            
+            if let Some(in_files) = gen_matches.values_of("files") {
+                let mut file_names: Vec<String> = Vec::new();
+                in_files.for_each(|x| file_names.push(String::from(x)));
+                files_hashed += hash_files(file_names, &h, f.as_ref());
+            }
 
-            hash_files(&file_names, &h, f.as_ref());
+            if gen_matches.is_present("from-stdin") {
+                let mut line_iter = io::BufReader::new(io::stdin()).lines().map(|x| x.unwrap());
+                files_hashed += hash_files(&mut line_iter, &h, f.as_ref());
+            }
+
+            if files_hashed == 0 {
+                println!("No input specified");
+            }
         },
         ("verify", Some(verify_matches)) => {
             let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
