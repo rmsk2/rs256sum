@@ -174,7 +174,7 @@ fn iterator_test() {
 fn iterator_bsd_test() {
     let data = String::from("SHA256 (dateia) = 111111\nSHA256 (dateib) = 222222\n");
     let hash: Box<dyn Digest> = Box::new(Sha256::new());
-    let algo_name = "SHA256";
+    let algo_name = ALGO_SHA256;
     
     let h: Rc<RefCell<dyn FileHash>> = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
     let f: Rc<dyn HashLineFormatter> = Rc::new(BsdFormatter::new(&h.borrow().get_algo()));
