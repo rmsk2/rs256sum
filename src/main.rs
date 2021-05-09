@@ -149,7 +149,7 @@ fn main() {
     let return_code: i32;
 
     let mut app = App::new("rs256sum")
-        .version("0.9.0")
+        .version("0.9.5")
         .author("Martin Grap <rmsk2@gmx.de>")
         .about("A sha256sum clone in Rust")          
         .subcommand(
