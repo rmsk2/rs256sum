@@ -69,6 +69,55 @@ fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
     return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
 }
 
+fn gen_command(gen_matches: &clap::ArgMatches) {
+    let h = make_file_hash(gen_matches.is_present("sha512"));
+    let f = make_formatter(&h.borrow().get_algo(), gen_matches.is_present("use-bsd"));
+    let mut files_hashed: u32 = 0;
+    
+    if let Some(in_files) = gen_matches.values_of("files") {
+        let mut file_names: Vec<String> = Vec::new();
+        in_files.for_each(|x| file_names.push(String::from(x)));
+        files_hashed += hash_files(file_names, &h, f.as_ref());
+    }
+
+    if gen_matches.is_present("from-stdin") {
+        let mut line_iter = io::BufReader::new(io::stdin()).lines().map(|x| x.unwrap());
+        files_hashed += hash_files(&mut line_iter, &h, f.as_ref());
+    }
+
+    if files_hashed == 0 {
+        println!("No input specified");
+    }
+}
+
+fn verify_command(verify_matches: &clap::ArgMatches) {
+    let h = make_file_hash(verify_matches.is_present("sha512"));
+    let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present("use-bsd"));
+    let mut all_ok = true;  
+    
+    if verify_matches.is_present("inputfile") {
+        let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
+
+        let stream_in = match File::open(ref_file) {
+            Ok(f) => f,
+            Err(e) => {
+                println!("{}", e);
+                return;
+            }
+        };
+
+        all_ok &= verify_ref_file(RefFile::new(stream_in, &h, &f));
+    }
+
+    if verify_matches.is_present("from-stdin") {
+        all_ok &= verify_ref_file(RefFile::new(io::stdin(), &h, &f));
+    }
+
+    if !all_ok {
+        println!("There were errors!!");
+    } 
+}
+
 fn main() {
     let mut app = App::new("rs256sum")
         .version("0.9.0")
@@ -115,51 +164,10 @@ fn main() {
 
      match subcommand {
         ("gen", Some(gen_matches)) => {
-            let h = make_file_hash(gen_matches.is_present("sha512"));
-            let f = make_formatter(&h.borrow().get_algo(), gen_matches.is_present("use-bsd"));
-            let mut files_hashed: u32 = 0;
-            
-            if let Some(in_files) = gen_matches.values_of("files") {
-                let mut file_names: Vec<String> = Vec::new();
-                in_files.for_each(|x| file_names.push(String::from(x)));
-                files_hashed += hash_files(file_names, &h, f.as_ref());
-            }
-
-            if gen_matches.is_present("from-stdin") {
-                let mut line_iter = io::BufReader::new(io::stdin()).lines().map(|x| x.unwrap());
-                files_hashed += hash_files(&mut line_iter, &h, f.as_ref());
-            }
-
-            if files_hashed == 0 {
-                println!("No input specified");
-            }
+            gen_command(gen_matches);
         },
         ("verify", Some(verify_matches)) => {
-            let h = make_file_hash(verify_matches.is_present("sha512"));
-            let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present("use-bsd"));
-            let mut all_ok = true;  
-            
-            if verify_matches.is_present("inputfile") {
-                let ref_file = String::from(verify_matches.value_of("inputfile").unwrap());
-
-                let stream_in = match File::open(ref_file) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        println!("{}", e);
-                        return;
-                    }
-                };
-    
-                all_ok &= verify_ref_file(RefFile::new(stream_in, &h, &f));
-            }
-
-            if verify_matches.is_present("from-stdin") {
-                all_ok &= verify_ref_file(RefFile::new(io::stdin(), &h, &f));
-            }
-
-            if !all_ok {
-                println!("There were errors!!");
-            } 
+            verify_command(verify_matches);
         },
         _ => {
             match app.print_long_help() {
