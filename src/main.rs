@@ -17,7 +17,10 @@ use formatter::HashLineFormatter;
 use reffile::RefFile;
 
 
-fn hash_files(file_names: &Vec<String>, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) {
+fn hash_files<'a, T>(file_names: T, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) 
+where 
+    T: IntoIterator<Item=&'a String>
+{
     for i in file_names {
         let hash = match h.borrow_mut().hash_file(i) {
             Ok(val) => val,
