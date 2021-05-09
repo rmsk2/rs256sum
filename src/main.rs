@@ -160,13 +160,13 @@ fn main() {
                     .help("A file containing reference hashes"))
                 .arg(Arg::with_name(ARG_SHA_512)
                     .long("sha512")
-                    .help("Use SHA512"))
+                    .help("Uses SHA512"))
                 .arg(Arg::with_name(ARG_USE_BSD)
                     .long("use-bsd")
-                    .help("Use BSD format"))
+                    .help("Uses BSD format"))
                 .arg(Arg::with_name(ARG_FROM_STDIN)
                     .long("from-stdin")
-                    .help("Read reference data from stdin")))
+                    .help("Reads reference data from stdin")))
         .subcommand(
             SubCommand::with_name(COMMAND_GEN)
                 .about("Generate reference data")        
@@ -178,13 +178,13 @@ fn main() {
                     .help("Names of files to hash"))
                 .arg(Arg::with_name(ARG_SHA_512)
                     .long("sha512")
-                    .help("Use SHA512"))
+                    .help("Uses SHA512"))
                 .arg(Arg::with_name(ARG_USE_BSD)
                     .long("use-bsd")
-                    .help("Use BSD format"))
+                    .help("Uses BSD format"))
                 .arg(Arg::with_name(ARG_FROM_STDIN)
                     .long("from-stdin")
-                    .help("Read names of files to hash from stdin")));
+                    .help("Reads names of files to hash from stdin")));
 
     let matches = app.clone().get_matches();
     let subcommand = matches.subcommand();
