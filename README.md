@@ -10,10 +10,10 @@ USAGE:
     rs256sum gen [FLAGS] [OPTIONS]
 
 FLAGS:
-        --from-stdin    Read names of files to hash from stdin
+        --from-stdin    Reads names of files to hash from stdin
     -h, --help          Prints help information
-        --sha512        Use SHA512
-        --use-bsd       Use BSD format
+        --sha512        Uses SHA512
+        --use-bsd       Uses BSD format
     -V, --version       Prints version information
 
 OPTIONS:
@@ -28,10 +28,10 @@ USAGE:
     rs256sum verify [FLAGS] [OPTIONS]
 
 FLAGS:
-        --from-stdin    Read reference data from stdin
+        --from-stdin    Reads reference data from stdin
     -h, --help          Prints help information
-        --sha512        Use SHA512
-        --use-bsd       Use BSD format
+        --sha512        Uses SHA512
+        --use-bsd       Uses BSD format
     -V, --version       Prints version information
 
 OPTIONS:
