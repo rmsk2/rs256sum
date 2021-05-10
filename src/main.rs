@@ -11,7 +11,7 @@ mod hasher;
 mod formatter;
 mod reffile;
 
-use hasher as hs;
+use hasher::Hasher;
 use hasher::FileHash;
 use hasher::HashError;
 use formatter::HashLineFormatter;
@@ -91,7 +91,7 @@ fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
         algo_name = ALGO_SHA512;
     }
 
-    return Box::new(hs::Hasher::new(algo_name, hash));
+    return Box::new(Hasher::new(algo_name, hash));
 }
 
 fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
