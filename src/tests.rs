@@ -163,6 +163,7 @@ fn iterator_test() {
     assert_eq!(res[1].1, "222222");
     assert_eq!(res[1].0, "dateib");
 }
+
 #[test]
 fn iterator_bsd_test() {
     let data = String::from("SHA512 (dateia) = 111111\nSHA512 (dateib) = 222222\n");
