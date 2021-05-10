@@ -1,9 +1,6 @@
 use std::io::{self, BufRead, Read};
 use std::rc::Rc;
 use std::cell::RefCell;
-
-use crate::hasher::FileHash;
-use crate::hasher::HashError;
 use crate::formatter::HashLineFormatter;
 
 pub struct RefFileIter<R : Read> {
@@ -42,40 +39,17 @@ impl<R : Read> Iterator for RefFileIter<R> {
 }
 
 pub struct RefFile<R : Read> {
-    hasher: Rc<RefCell<dyn FileHash>>,
     parser: Rc<dyn HashLineFormatter>,
     line_iter: Rc<RefCell<std::io::Lines<io::BufReader<R>>>>
 }
 
 impl<R : Read> RefFile<R> {
-    pub fn new(s: R, h: &Rc<RefCell<dyn FileHash>>, p: &Rc<dyn HashLineFormatter>) -> Self {
+    pub fn new(s: R, p: &Rc<dyn HashLineFormatter>) -> Self {
         return RefFile {
-            hasher: h.clone(),
             parser: p.clone(),
             line_iter: Rc::new(RefCell::new(io::BufReader::new(s).lines()))
         }
     }
-
-    pub fn process_one_file(&self, ref_data: (&String, &String)) -> bool {
-        let file_name = ref_data.0;
-        let hash_val = ref_data.1;
-    
-        let verify_result = self.hasher.borrow_mut().verify_file(file_name, hash_val);
-        match verify_result {
-            HashError::Ok => {
-                println!("{}: OK", file_name);
-                return true;
-            },
-            HashError::HashDifferent | HashError::HashVerifyFail(_) => {
-                println!("{}: FAILED!!!", file_name);
-                return false;
-            },
-            _ => {
-                println!("{}: {}", file_name, verify_result.message());
-                return false;
-            }  
-        }   
-    }     
 }
 
 impl<R : Read> IntoIterator for &RefFile<R> {

@@ -3,7 +3,6 @@ use std::fs::File;
 use clap::{Arg, App, SubCommand};
 use crypto::digest::Digest;
 use std::rc::Rc;
-use std::cell::RefCell;
 use std::process;
 use std::io::{self, Read, BufRead};
 
@@ -14,6 +13,7 @@ mod reffile;
 
 use hasher as hs;
 use hasher::FileHash;
+use hasher::HashError;
 use formatter::HashLineFormatter;
 use reffile::RefFile;
 
@@ -23,14 +23,14 @@ const PROG_RETURN_OK: i32 = 0;
 const PROG_RETURN_ERR: i32 = 42;
 
 
-fn hash_files<T>(file_names: T, h: &Rc<RefCell<dyn FileHash>>, line_formatter: &dyn HashLineFormatter) -> (u32, bool)
+fn hash_files<T>(file_names: T, h: &mut dyn FileHash, line_formatter: &dyn HashLineFormatter) -> (u32, bool)
 where 
     T: IntoIterator<Item=String>
 {
     let mut count: u32 = 0;
 
     for i in file_names {
-        let hash = match h.borrow_mut().hash_file(&i) {
+        let hash = match h.hash_file(&i) {
             Ok(val) => val,
             Err(err) => {
                 eprintln!("{}", err.message()); 
@@ -45,10 +45,31 @@ where
     return (count, true);
 }
 
-fn verify_ref_file<R : Read>(ref_file: RefFile<R>) -> bool {
-    let mut all_ok = true;
+pub fn process_one_file(hasher: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
+    let file_name = ref_data.0;
+    let hash_val = ref_data.1;
 
-    ref_file.into_iter().for_each(|i| all_ok &= ref_file.process_one_file((&i.0, &i.1)));
+    let verify_result = hasher.verify_file(file_name, hash_val);
+    match verify_result {
+        HashError::Ok => {
+            println!("{}: OK", file_name);
+            return true;
+        },
+        HashError::HashDifferent | HashError::HashVerifyFail(_) => {
+            println!("{}: FAILED!!!", file_name);
+            return false;
+        },
+        _ => {
+            println!("{}: {}", file_name, verify_result.message());
+            return false;
+        }  
+    }   
+}
+
+fn verify_ref_file<R : Read>(ref_file: RefFile<R>, hasher: &mut dyn FileHash) -> bool {
+    let mut all_ok = true;
+ 
+    ref_file.into_iter().for_each(|i| all_ok &= process_one_file(hasher, (&i.0, &i.1)));
 
     return all_ok;   
 }
@@ -61,7 +82,7 @@ fn make_formatter(algo_name: &String, use_bsd: bool) -> Rc<dyn HashLineFormatter
     }
 }
 
-fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
+fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
     let mut hash: Box<dyn Digest> = Box::new(Sha256::new());
     let mut algo_name = ALGO_SHA256;
 
@@ -70,26 +91,26 @@ fn make_file_hash(use_sha_512: bool) -> Rc<RefCell<dyn FileHash>> {
         algo_name = ALGO_SHA512;
     }
 
-    return Rc::new(RefCell::new(hs::Hasher::new(algo_name, hash)));
+    return Box::new(hs::Hasher::new(algo_name, hash));
 }
 
 fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
-    let h = make_file_hash(gen_matches.is_present(ARG_SHA_512));
-    let f = make_formatter(&h.borrow().get_algo(), gen_matches.is_present(ARG_USE_BSD));
+    let mut h = make_file_hash(gen_matches.is_present(ARG_SHA_512));
+    let f = make_formatter(&h.get_algo(), gen_matches.is_present(ARG_USE_BSD));
     let mut files_hashed: u32 = 0;
     let mut all_ok = true;
     
     if let Some(in_files) = gen_matches.values_of(ARG_FILES) {
         let mut file_names: Vec<String> = Vec::new();
         in_files.for_each(|x| file_names.push(String::from(x)));
-        let (hash_count, ok) = hash_files(file_names, &h, f.as_ref());
+        let (hash_count, ok) = hash_files(file_names, h.as_mut(), f.as_ref());
         files_hashed += hash_count;
         all_ok &= ok;
     }
 
     if gen_matches.is_present(ARG_FROM_STDIN) {
         let mut line_iter = io::BufReader::new(io::stdin()).lines().map(|x| x.unwrap());
-        let (hash_count, ok) = hash_files(&mut line_iter, &h, f.as_ref());
+        let (hash_count, ok) = hash_files(&mut line_iter, h.as_mut(), f.as_ref());
         files_hashed += hash_count;
         all_ok &= ok;
     }
@@ -107,8 +128,8 @@ fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
 }
 
 fn verify_command(verify_matches: &clap::ArgMatches) -> i32 {
-    let h = make_file_hash(verify_matches.is_present(ARG_SHA_512));
-    let f = make_formatter(&h.borrow().get_algo(), verify_matches.is_present(ARG_USE_BSD));
+    let mut h = make_file_hash(verify_matches.is_present(ARG_SHA_512));
+    let f = make_formatter(&h.get_algo(), verify_matches.is_present(ARG_USE_BSD));
     let mut all_ok = true;  
     
     if verify_matches.is_present(ARG_INPUT_FILE) {
@@ -122,11 +143,11 @@ fn verify_command(verify_matches: &clap::ArgMatches) -> i32 {
             }
         };
 
-        all_ok &= verify_ref_file(RefFile::new(stream_in, &h, &f));
+        all_ok &= verify_ref_file(RefFile::new(stream_in, &f), h.as_mut());
     }
 
     if verify_matches.is_present(ARG_FROM_STDIN) {
-        all_ok &= verify_ref_file(RefFile::new(io::stdin(), &h, &f));
+        all_ok &= verify_ref_file(RefFile::new(io::stdin(), &f), h.as_mut());
     }
 
     if !all_ok {

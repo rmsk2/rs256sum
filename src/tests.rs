@@ -5,11 +5,7 @@ use crypto::sha2::Sha256;
 #[cfg(test)]
 use crate::formatter::*;
 #[cfg(test)]
-use crypto::digest::Digest;
-#[cfg(test)]
 use std::rc::Rc;
-#[cfg(test)]
-use std::cell::RefCell;
 #[cfg(test)]
 use crate::reffile::*;
 #[cfg(test)]
@@ -156,12 +152,9 @@ fn bsd_parser_test() {
 #[test]
 fn iterator_test() {
     let data = String::from("111111  dateia\n222222  dateib\n");
-    let hash: Box<dyn Digest> = Box::new(Sha256::new());
-    let algo_name = ALGO_SHA256;
     
-    let h: Rc<RefCell<dyn FileHash>> = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
     let f: Rc<dyn HashLineFormatter> = Rc::new(SimpleFormatter::new());
-    let ref_data = RefFile::new(data.as_bytes(), &h, &f);
+    let ref_data = RefFile::new(data.as_bytes(), &f);
     let res: Vec<(String, String)> = ref_data.into_iter().collect();
 
     assert_eq!(res.len(), 2);
@@ -173,12 +166,10 @@ fn iterator_test() {
 #[test]
 fn iterator_bsd_test() {
     let data = String::from("SHA512 (dateia) = 111111\nSHA512 (dateib) = 222222\n");
-    let hash: Box<dyn Digest> = Box::new(Sha512::new());
     let algo_name = ALGO_SHA512;
     
-    let h: Rc<RefCell<dyn FileHash>> = Rc::new(RefCell::new(Hasher::new(algo_name, hash)));
-    let f: Rc<dyn HashLineFormatter> = Rc::new(BsdFormatter::new(&h.borrow().get_algo()));
-    let ref_data = RefFile::new(data.as_bytes(), &h, &f);
+    let f: Rc<dyn HashLineFormatter> = Rc::new(BsdFormatter::new(&String::from(algo_name)));
+    let ref_data = RefFile::new(data.as_bytes(), &f);
     let res: Vec<(String, String)> = ref_data.into_iter().collect();
 
     assert_eq!(res.len(), 2);
