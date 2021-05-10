@@ -46,7 +46,7 @@ where
 }
 
 pub fn process_one_file(hasher: &mut dyn FileHash, ref_data: (&String, &String)) -> bool {
-    let (file_name, hash_val)  = ref_data;
+    let (file_name, hash_val) = ref_data;
 
     let verify_result = hasher.verify_file(file_name, hash_val);
     match verify_result {
