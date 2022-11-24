@@ -1,6 +1,7 @@
+//use clap::parser::ValuesRef;
 use crypto::sha2::{Sha256, Sha512};
 use std::fs::File;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, Command};
 use crypto::digest::Digest;
 use std::rc::Rc;
 use std::process;
@@ -93,13 +94,26 @@ fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
     return Box::new(Hasher::new(algo_name, hash));
 }
 
+fn is_option_present(matches: &clap::ArgMatches, id: &str) -> bool {
+    let test_res = matches.value_source(id);
+
+    return match test_res {
+        Some(v) => {
+            return v == clap::parser::ValueSource::CommandLine;
+        }
+        None => false
+    }
+}
+
 fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
-    let mut h = make_file_hash(gen_matches.is_present(ARG_SHA_512));
-    let f = make_formatter(&h.get_algo(), gen_matches.is_present(ARG_USE_BSD));
+    let mut h = make_file_hash(is_option_present(gen_matches, ARG_SHA_512));
+    let f = make_formatter(&h.get_algo(), is_option_present(gen_matches, ARG_USE_BSD));
     let mut files_hashed: u32 = 0;
     let mut all_ok = true;
     
-    if let Some(in_files) = gen_matches.values_of(ARG_FILES) {
+    let in_files_match_data= gen_matches.get_many::<String>(ARG_FILES);
+
+    if let Some(in_files) = in_files_match_data {
         let mut file_names: Vec<String> = Vec::new();
         in_files.for_each(|x| file_names.push(String::from(x)));
         let (hash_count, ok) = hash_files(file_names, h.as_mut(), f.as_ref());
@@ -107,7 +121,7 @@ fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
         all_ok &= ok;
     }
 
-    if gen_matches.is_present(ARG_FROM_STDIN) {
+    if is_option_present(gen_matches, ARG_FROM_STDIN) {
         let mut line_iter = io::BufReader::new(io::stdin()).lines().map(|x| x.unwrap());
         let (hash_count, ok) = hash_files(&mut line_iter, h.as_mut(), f.as_ref());
         files_hashed += hash_count;
@@ -127,12 +141,13 @@ fn gen_command(gen_matches: &clap::ArgMatches) -> i32 {
 }
 
 fn verify_command(verify_matches: &clap::ArgMatches) -> i32 {
-    let mut h = make_file_hash(verify_matches.is_present(ARG_SHA_512));
-    let f = make_formatter(&h.get_algo(), verify_matches.is_present(ARG_USE_BSD));
+    let mut h = make_file_hash(is_option_present(verify_matches, ARG_SHA_512));
+    let f = make_formatter(&h.get_algo(), is_option_present(verify_matches, ARG_USE_BSD));
     let mut all_ok = true;  
     
-    if verify_matches.is_present(ARG_INPUT_FILE) {
-        let ref_file = String::from(verify_matches.value_of(ARG_INPUT_FILE).unwrap());
+    if is_option_present(verify_matches, ARG_INPUT_FILE) {
+        let in_file: Option<&String> = verify_matches.get_one(ARG_INPUT_FILE);
+        let ref_file: String = String::from(in_file.unwrap().clone());
 
         let stream_in = match File::open(ref_file) {
             Ok(f) => f,
@@ -145,7 +160,7 @@ fn verify_command(verify_matches: &clap::ArgMatches) -> i32 {
         all_ok &= verify_ref_file(RefFile::new(stream_in, &f), h.as_mut());
     }
 
-    if verify_matches.is_present(ARG_FROM_STDIN) {
+    if is_option_present(verify_matches, ARG_FROM_STDIN) {
         all_ok &= verify_ref_file(RefFile::new(io::stdin(), &f), h.as_mut());
     }
 
@@ -166,54 +181,59 @@ const ARG_FROM_STDIN: &str = "from-stdin";
 const ARG_FILES: &str = "files";
 
 fn main() {
-    let mut app = App::new("rs256sum")
+    let mut app = Command::new("rs256sum")
         .version("0.9.5")
         .author("Martin Grap <rmsk2@gmx.de>")
         .about("A sha256sum clone in Rust")          
         .subcommand(
-            SubCommand::with_name(COMMAND_VERIFY)
+            Command::new(COMMAND_VERIFY)
                 .about("Verify reference data")        
-                .arg(Arg::with_name(ARG_INPUT_FILE)
-                    .short("i")
+                .arg(Arg::new(ARG_INPUT_FILE)
+                    .short('i')
                     .long("input")
-                    .takes_value(true)
+                    .num_args(1)
                     .help("A file containing reference hashes"))
-                .arg(Arg::with_name(ARG_SHA_512)
+                .arg(Arg::new(ARG_SHA_512)
                     .long("sha512")
+                    .num_args(0)
                     .help("Uses SHA512"))
-                .arg(Arg::with_name(ARG_USE_BSD)
+                .arg(Arg::new(ARG_USE_BSD)
                     .long("use-bsd")
+                    .num_args(0)
                     .help("Uses BSD format"))
-                .arg(Arg::with_name(ARG_FROM_STDIN)
+                .arg(Arg::new(ARG_FROM_STDIN)
                     .long("from-stdin")
+                    .num_args(0)
                     .help("Reads reference data from stdin")))
         .subcommand(
-            SubCommand::with_name(COMMAND_GEN)
+            Command::new(COMMAND_GEN)
                 .about("Generate reference data")        
-                .arg(Arg::with_name(ARG_FILES)
-                    .short("f")
+                .arg(Arg::new(ARG_FILES)
+                    .short('f')
                     .long("files")
-                    .takes_value(true)
-                    .multiple(true)
+                    .num_args(1..)
                     .help("Names of files to hash"))
-                .arg(Arg::with_name(ARG_SHA_512)
+                .arg(Arg::new(ARG_SHA_512)
                     .long("sha512")
+                    .num_args(0)
                     .help("Uses SHA512"))
-                .arg(Arg::with_name(ARG_USE_BSD)
+                .arg(Arg::new(ARG_USE_BSD)
                     .long("use-bsd")
+                    .num_args(0)
                     .help("Uses BSD format"))
-                .arg(Arg::with_name(ARG_FROM_STDIN)
+                .arg(Arg::new(ARG_FROM_STDIN)
                     .long("from-stdin")
+                    .num_args(0)
                     .help("Reads names of files to hash from stdin")));
 
     let matches = app.clone().get_matches();
     let subcommand = matches.subcommand();
 
     let return_code = match subcommand {
-        (COMMAND_GEN, Some(gen_matches)) => {
+        Some((COMMAND_GEN, gen_matches)) => {
             gen_command(gen_matches)
         },
-        (COMMAND_VERIFY, Some(verify_matches)) => {
+        Some((COMMAND_VERIFY, verify_matches)) => {
             verify_command(verify_matches)
         },
         _ => {
