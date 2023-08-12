@@ -1,8 +1,7 @@
-//use clap::parser::ValuesRef;
-use crypto::sha2::{Sha256, Sha512};
+use sha2::{Sha256, Sha512, Digest};
+use digest::DynDigest;
 use std::fs::File;
 use clap::{Arg, Command};
-use crypto::digest::Digest;
 use std::rc::Rc;
 use std::process;
 use std::io::{self, Read, BufRead};
@@ -83,7 +82,7 @@ fn make_formatter(algo_name: &String, use_bsd: bool) -> Rc<dyn HashLineFormatter
 }
 
 fn make_file_hash(use_sha_512: bool) -> Box<dyn FileHash> {
-    let mut hash: Box<dyn Digest> = Box::new(Sha256::new());
+    let mut hash: Box<dyn DynDigest> = Box::new(Sha256::new());
     let mut algo_name = ALGO_SHA256;
 
     if use_sha_512 {

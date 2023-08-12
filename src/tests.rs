@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::hasher::*;
 #[cfg(test)]
-use crypto::sha2::Sha256;
+use sha2::{Sha256, Digest};
 #[cfg(test)]
 use crate::formatter::*;
 #[cfg(test)]

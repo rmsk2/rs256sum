@@ -1,6 +1,6 @@
 use std::io::prelude::*;
 use std::fs::File;
-use crypto::digest::Digest;
+use digest::DynDigest;
 
 #[allow(dead_code)]
 pub enum HashError {
@@ -10,6 +10,21 @@ pub enum HashError {
     HashDifferent,
     ReadError,
     FileOpenError(String)
+}
+
+const HEX_CHARS: &str = "0123456789abcdef";
+
+fn to_hex_string(hash_val: Box<[u8]>) -> String {
+    let mut res = String::new();
+
+    for i in 0..hash_val.len() {
+        let hi_nibble = (hash_val[i] & 0xF0u8) >> 4;
+        let lo_nibble = hash_val[i] & 0x0Fu8;
+        res.push(HEX_CHARS.as_bytes()[usize::from(hi_nibble)] as char);
+        res.push(HEX_CHARS.as_bytes()[usize::from(lo_nibble)] as char);
+    }
+
+    return res;
 }
 
 impl HashError {
@@ -25,13 +40,14 @@ impl HashError {
     }
 } 
 
-
-
 const BUFFER_SIZE: usize = 4096;
 
-pub trait FileHash {
-    fn get_algo(&self) -> String;
+pub trait DataHasher {
     fn hash_data(&mut self, r: &mut dyn Read)-> Result<String, HashError>;
+}
+
+pub trait FileHash : DataHasher {
+    fn get_algo(&self) -> String;
     fn verify_data(&mut self, r: &mut dyn Read, hash: &String)-> HashError;
     fn hash_file(&mut self, file_name: &String) -> Result<String, HashError>;
     fn verify_file(&mut self, file_name: &String, hash: &String) -> HashError;
@@ -39,12 +55,12 @@ pub trait FileHash {
 
 pub struct Hasher {
     algo_name: String,
-    hash_impl: Box<dyn Digest>,
+    hash_impl: Box<dyn DynDigest>,
     buffer: [u8; BUFFER_SIZE]
 } 
 
 impl Hasher {
-    pub fn new(name: &str, d: Box<dyn Digest>) -> Hasher {
+    pub fn new(name: &str, d: Box<dyn DynDigest>) -> Hasher {
         let res = Hasher {
                     algo_name: String::from(name),
                     hash_impl: d,
@@ -55,12 +71,7 @@ impl Hasher {
     }
 }
 
-impl FileHash for Hasher
-{
-    fn get_algo(&self) -> String {
-        return self.algo_name.clone();
-    }
-
+impl DataHasher for Hasher {
     fn hash_data(&mut self, r: &mut dyn Read) -> Result<String, HashError> {
         self.hash_impl.reset();
 
@@ -68,14 +79,20 @@ impl FileHash for Hasher
             let data_read =  r.read(&mut self.buffer);
             match data_read {
                 Ok(0) => {
-                    let res = self.hash_impl.result_str();
-                    self.hash_impl.reset();
-                    return Ok(res);
+                    let hash_val = self.hash_impl.finalize_reset();
+                    return Ok(to_hex_string(hash_val));
                 },
-                Ok(bytes_read) => self.hash_impl.input(&self.buffer[..bytes_read]),
+                Ok(bytes_read) => self.hash_impl.update(&self.buffer[..bytes_read]),
                 Err(_) => return Err(HashError::ReadError)
             }
         }
+    }
+}
+
+impl FileHash for Hasher
+{
+    fn get_algo(&self) -> String {
+        return self.algo_name.clone();
     }
 
     fn verify_data(&mut self, r: &mut dyn Read, hash: &String)-> HashError {
